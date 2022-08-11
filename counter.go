@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -41,4 +42,16 @@ func NewSlot(t time.Time) *slot {
 // that occurred within the time interval represented by the slot.
 func (s *slot) String() string {
 	return fmt.Sprintf("%d hits at %s", s.hits, s.time)
+}
+
+func (s *slot) AddHit() {
+	atomic.AddUint64(&s.hits, 1)
+}
+
+func (s *slot) Time() time.Time {
+	return s.time
+}
+
+func (s *slot) Hits() uint64 {
+	return s.hits
 }

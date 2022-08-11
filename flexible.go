@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -51,7 +50,7 @@ func NewFlexibleHitCounter(d time.Duration, r time.Duration) (*FlexibleHitCounte
 	c := &FlexibleHitCounter{slots: make([]*slot, numSlots), res: r}
 	fillTime := c.now()
 	for i := 0; i < int(numSlots); i++ {
-		c.slots[i] = &slot{time: fillTime}
+		c.slots[i] = NewSlot(fillTime)
 		fillTime = fillTime.Add(-r)
 	}
 	return c, nil
@@ -61,10 +60,10 @@ func NewFlexibleHitCounter(d time.Duration, r time.Duration) (*FlexibleHitCounte
 func (c *FlexibleHitCounter) GetHits() (total uint64) {
 	notValidBefore := c.now().Add(-c.res * time.Duration(len(c.slots)))
 	for _, slot := range c.slots {
-		if slot.time.Before(notValidBefore) {
+		if slot.Time().Before(notValidBefore) {
 			break
 		}
-		total += slot.hits
+		total += slot.Hits()
 	}
 	return
 }
@@ -86,7 +85,7 @@ func (c *FlexibleHitCounter) AddHit() {
 func (c *FlexibleHitCounter) AddHitAtTime(t time.Time) {
 	for i := c.maybeShiftIn(t); i >= 0 && i < len(c.slots); i++ {
 		if s := c.slots[i]; s.time.Equal(t) {
-			atomic.AddUint64(&s.hits, 1)
+			s.AddHit()
 			break
 		}
 	}
@@ -107,7 +106,7 @@ func (c *FlexibleHitCounter) maybeShiftIn(t time.Time) int {
 		for i := len(c.slots) - 1; i > 0; i-- {
 			c.slots[i] = c.slots[i-1]
 		}
-		c.slots[0] = &slot{time: t, hits: 0}
+		c.slots[0] = NewSlot(t)
 		return 0
 	}
 
@@ -131,6 +130,6 @@ func (c *FlexibleHitCounter) maybeShiftIn(t time.Time) int {
 	}
 
 	// Insert the new slot
-	c.slots[insertPos] = &slot{time: t}
+	c.slots[insertPos] = NewSlot(t)
 	return insertPos
 }

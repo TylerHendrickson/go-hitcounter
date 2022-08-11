@@ -2,7 +2,6 @@ package hitcounter
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -43,7 +42,7 @@ func NewImmediateHitCounter(d time.Duration, r time.Duration) (*ImmediateHitCoun
 	c := &ImmediateHitCounter{slots: make([]*slot, numSlots), res: r}
 	fillTime := c.now()
 	for i := 0; i < int(numSlots); i++ {
-		c.slots[i] = &slot{time: fillTime}
+		c.slots[i] = NewSlot(fillTime)
 		fillTime = fillTime.Add(-r)
 	}
 	return c, nil
@@ -53,8 +52,8 @@ func NewImmediateHitCounter(d time.Duration, r time.Duration) (*ImmediateHitCoun
 func (c *ImmediateHitCounter) GetHits() (total uint64) {
 	notValidBefore := c.now().Add(-c.res * time.Duration(len(c.slots)))
 	for _, slot := range c.slots {
-		if !slot.time.Before(notValidBefore) {
-			total += slot.hits
+		if !slot.Time().Before(notValidBefore) {
+			total += slot.Hits()
 		}
 	}
 	return
@@ -69,7 +68,7 @@ func (c *ImmediateHitCounter) AddHit() {
 	c.maybeShiftIn(c.now())
 	for _, s := range c.slots {
 		if s.time.Equal(now) {
-			atomic.AddUint64(&s.hits, 1)
+			s.AddHit()
 			break
 		}
 	}
@@ -82,6 +81,6 @@ func (c *ImmediateHitCounter) maybeShiftIn(t time.Time) {
 		for i := len(c.slots) - 1; i > 0; i-- {
 			c.slots[i] = c.slots[i-1]
 		}
-		c.slots[0] = &slot{time: t, hits: 0}
+		c.slots[0] = NewSlot(t)
 	}
 }

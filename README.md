@@ -30,4 +30,7 @@ Tests exist for both implementations, although they are duplicative. Run `go tes
 
 - Tests could be more thorough for `FlexibleHitCounter`.
 - Improved coverage generally.
-- Could use some examples, such as a server that exposes a configured counter.
+- Better code reuse – `flexible.go` essentially copied `immediate.go` and adjusted the `AddHit()`
+mechanics, which isn't very elegant.
+- Could use some code examples, such as a server that exposes a configured counter.
+- README could use a usage demonstration.
