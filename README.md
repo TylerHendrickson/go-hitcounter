@@ -29,4 +29,5 @@ Tests exist for both implementations, although they are duplicative. Run `go tes
 ## Todo
 
 - Tests could be more thorough for `FlexibleHitCounter`.
+- Improved coverage generally.
 - Could use some examples, such as a server that exposes a configured counter.
