@@ -158,8 +158,13 @@ func (c *ExpiringCounter) maybeInsertSlot(t time.Time) int {
 
 	// Figure out where to insert a new slot
 	insertPos := 1
-	for insertPos < len(c.slots)-1 {
-		if t.After(c.slots[insertPos].time) {
+	for _, s := range c.slots[1:len(c.slots)] {
+		if t.Equal(s.time) {
+			// Slot already exists; no need to insert
+			return insertPos
+		}
+
+		if t.After(s.time) {
 			break
 		}
 		insertPos++
