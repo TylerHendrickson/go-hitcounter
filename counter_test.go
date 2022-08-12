@@ -1,4 +1,4 @@
-package hitcounter_test
+package counter_test
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	counter "github.com/TylerHendrickson/go-hitcounter"
 )
 
-func TestNewFlexibleHitCounter(t *testing.T) {
+func TestNewExpiringCounter(t *testing.T) {
 	for _, tt := range []struct {
 		name                 string
 		duration, resolution time.Duration
@@ -31,7 +31,7 @@ func TestNewFlexibleHitCounter(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := counter.NewFlexibleHitCounter(tt.duration, tt.resolution)
+			c, err := counter.NewExpiringCounter(tt.duration, tt.resolution)
 			if tt.expectedError != nil {
 				if !errors.Is(err, tt.expectedError) {
 					t.Errorf("expected %q error but got %v", tt.expectedError, err)
@@ -48,7 +48,7 @@ func TestNewFlexibleHitCounter(t *testing.T) {
 	}
 }
 
-func TestFlexibleRollingTicksWithVariableHits(t *testing.T) {
+func TestRollingTicksWithVariableHits(t *testing.T) {
 	for ti, tt := range []struct {
 		duration    int
 		hitsPerTick []uint64
@@ -73,7 +73,7 @@ func TestFlexibleRollingTicksWithVariableHits(t *testing.T) {
 				return mockTime
 			}
 
-			c, err := counter.NewFlexibleHitCounter(time.Second*time.Duration(tt.duration), time.Second)
+			c, err := counter.NewExpiringCounter(time.Second*time.Duration(tt.duration), time.Second)
 			if err != nil {
 				t.Errorf("Unexpected error: %s", err)
 				t.FailNow()
@@ -91,8 +91,4 @@ func TestFlexibleRollingTicksWithVariableHits(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestFlexibleOutOfOrderHits(t *testing.T) {
-
 }
