@@ -3,6 +3,7 @@ package counter_test
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -57,11 +58,7 @@ func TestRollingTicksWithVariableHits(t *testing.T) {
 		{5, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},    // last 5 seconds: 6+7+8+9+10=40
 		{3, []uint64{3, 5, 2, 8, 92, 4, 6, 7, 1, 9, 3}}, // last 3 seconds: 1+9+3=13
 	} {
-		var expected uint64
-		unexpiredTicks := tt.hitsPerTick[len(tt.hitsPerTick)-tt.duration : len(tt.hitsPerTick)]
-		for _, hits := range unexpiredTicks {
-			expected += hits
-		}
+		expected := uint64Sum(tt.hitsPerTick[len(tt.hitsPerTick)-tt.duration : len(tt.hitsPerTick)])
 		testName := fmt.Sprintf("%d: expect %d hits in last %d seconds", ti, expected, tt.duration)
 
 		t.Run(testName, func(t *testing.T) {
@@ -91,4 +88,61 @@ func TestRollingTicksWithVariableHits(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOutOfOrderHits(t *testing.T) {
+	for ti, tt := range []struct {
+		duration    int
+		hitsPerTick []uint64
+	}{
+		{5, []uint64{1, 2, 3, 4, 5}},                    // last 5 seconds: 1+2+3+4+5=15
+		{5, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},    // last 5 seconds: 6+7+8+9+10=40
+		{3, []uint64{3, 5, 2, 8, 92, 4, 6, 7, 1, 9, 3}}, // last 3 seconds: 1+9+3=13
+	} {
+		expected := uint64Sum(tt.hitsPerTick[len(tt.hitsPerTick)-tt.duration : len(tt.hitsPerTick)])
+		testName := fmt.Sprintf("%d: expect %d hits in last %d seconds", ti, expected, tt.duration)
+		t.Run(testName, func(t *testing.T) {
+			restoreClockNow := counter.Now
+			t.Cleanup(func() { counter.Now = restoreClockNow })
+			mockTime := counter.Now().Truncate(time.Second)
+			simTime := mockTime.Add(-time.Duration(len(tt.hitsPerTick)) * time.Second)
+			counter.Now = func() time.Time { return mockTime }
+
+			hitMoments := make([]time.Time, 0)
+			for _, numHits := range tt.hitsPerTick {
+				simTime = simTime.Add(time.Second)
+				for i := 0; i < int(numHits); i++ {
+					hitMoments = append(hitMoments, simTime)
+				}
+			}
+			shuffleTimes(hitMoments)
+
+			c, err := counter.NewExpiringCounter(time.Second*time.Duration(tt.duration), time.Second)
+			if err != nil {
+				t.Errorf("Unexpected error: %s", err)
+				t.FailNow()
+			}
+
+			for _, t := range hitMoments {
+				c.AddHitAtTime(t)
+			}
+			if result := c.GetHits(); result != expected {
+				t.Errorf("expected %v but got %v in counter %s", expected, result, c)
+			}
+		})
+	}
+}
+
+func uint64Sum(elems []uint64) (total uint64) {
+	for _, i := range elems {
+		total += i
+	}
+	return
+}
+
+func shuffleTimes(times []time.Time) {
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(times), func(i, j int) {
+		times[i], times[j] = times[j], times[i]
+	})
 }
